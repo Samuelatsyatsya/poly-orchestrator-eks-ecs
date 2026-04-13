@@ -7,10 +7,11 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Minimum permissions for OIDC and repo checkout.
+# Minimum permissions for OIDC, repo checkout, and SARIF upload.
 permissions:
   id-token: write
   contents: read
+  security-events: write
 
 # Default configuration (override via repo variables).
 env:
@@ -22,8 +23,58 @@ env:
   CONTAINER_NAME: ${{ vars.CONTAINER_NAME || 'quote-api' }}
 
 jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Dependency vulnerability scan.
+      - name: npm audit
+        working-directory: ./app
+        run: npm audit --audit-level=high
+
+      # Static analysis with Semgrep.
+      - name: Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/default
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      # Build image locally for Trivy scan (no push yet).
+      - name: Build image for scanning
+        run: docker build -t quote-api:scan ./app
+
+      # Trivy image scan — fail on critical/high.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: quote-api:scan
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+
   # Single job that builds and deploys.
   deploy:
+    needs: security-scan
     runs-on: ubuntu-latest
     steps:
       # Checkout repository sources.
