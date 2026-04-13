@@ -1,0 +1,35 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfvars
+*.tfplan
+crash.log
+crash.*.log
+.terraform.lock.hcl
+backend.hcl
+
+# Build artifacts
+build/
+dist/
+coverage/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# General logs
+*.log
