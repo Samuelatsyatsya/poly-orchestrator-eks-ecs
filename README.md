@@ -200,8 +200,25 @@ Defaults used by the workflow:
 - `TASK_DEFINITION_FAMILY=quote-api`
 - `CONTAINER_NAME=quote-api`
 
-### 3. Trigger a Deployment
+### 3. Add GitHub Secrets and Variables (Security Scanning)
+The security scan job requires one optional secret:
+- `SEMGREP_APP_TOKEN` — only needed if using Semgrep Cloud dashboard. Remove the `env:` block from the workflow if unused.
+
+### 4. Trigger a Deployment
 Push to `main` and the workflow in `.github/workflows/ecs-deploy.yml` will deploy automatically.
+
+## ECS CI/CD Security Scanning
+The workflow runs a `security-scan` job before every deployment. The `deploy` job is gated on it passing.
+
+| Step | Tool | Fails on |
+|---|---|---|
+| Dependency scan | `npm audit` | high/critical CVEs |
+| Static analysis | Semgrep (`p/default`) | any finding |
+| Image scan | Trivy | unfixed critical/high CVEs |
+
+SARIF results from both Semgrep and Trivy are uploaded to the **GitHub Security → Code scanning** tab on every run (including failed runs), so findings are always visible.
+
+The image is built locally inside the `security-scan` job for Trivy to scan — it is only pushed to ECR in the `deploy` job after all scans pass.
 
 ## 4. Kubernetes (EKS) Deployment with Terraform
 
@@ -292,3 +309,5 @@ Check ECS scaling in the console or via CLI.
 - Kubernetes: `kubernetes/deployment.yaml`, `kubernetes/service.yaml`, `kubernetes/hpa.yaml`
 - Terraform: `terraform/ecs/*.tf`, `terraform/eks/*.tf`, `terraform/state/*.tf`, `terraform/modules/*`
 - CI/CD: `.github/workflows/ecs-deploy.yml`
+  - `security-scan` job: npm audit, Semgrep, Trivy (SARIF → GitHub Security tab)
+  - `deploy` job: ECR push, ECS task definition update, service rollout
