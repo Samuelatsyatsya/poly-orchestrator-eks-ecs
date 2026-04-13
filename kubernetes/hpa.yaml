@@ -1,0 +1,29 @@
+# API version for HPA resource
+apiVersion: autoscaling/v2
+# Resource type
+kind: HorizontalPodAutoscaler
+# HPA metadata
+metadata:
+  # HPA name
+  name: quote-api
+# HPA specification
+spec:
+  # Target deployment to scale
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: quote-api
+  # Minimum number of pods
+  minReplicas: 2
+  # Maximum number of pods
+  maxReplicas: 4
+  # Scaling metrics
+  metrics:
+    - # Resource-based metric
+      type: Resource
+      resource:
+        name: cpu
+        target:
+          # Average CPU utilization target
+          type: Utilization
+          averageUtilization: 50

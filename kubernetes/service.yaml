@@ -1,0 +1,26 @@
+# API version for Service resource
+apiVersion: v1
+# Resource type
+kind: Service
+# Service metadata
+metadata:
+  # Service name
+  name: quote-api
+  # Top-level labels
+  labels:
+    app: quote-api
+# Service specification
+spec:
+  # Service type (LoadBalancer for EKS/Minikube tunnel)
+  type: LoadBalancer
+  # Selector to target pods
+  selector:
+    app: quote-api
+  # Service ports
+  ports:
+    - # Port name
+      name: http
+      # Exposed service port
+      port: 80
+      # Target container port
+      targetPort: 3000

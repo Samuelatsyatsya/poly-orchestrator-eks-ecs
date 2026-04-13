@@ -1,0 +1,64 @@
+# API version for Deployment resource
+apiVersion: apps/v1
+# Resource type
+kind: Deployment
+# Deployment metadata
+metadata:
+  # Deployment name
+  name: quote-api
+  # Top-level labels
+  labels:
+    app: quote-api
+# Deployment specification
+spec:
+  # Number of desired pods
+  replicas: 2
+  # Selector for pod labels
+  selector:
+    matchLabels:
+      app: quote-api
+  # Pod template
+  template:
+    # Pod metadata
+    metadata:
+      labels:
+        app: quote-api
+    # Pod spec
+    spec:
+      # Container list
+      containers:
+        - # Container name
+          name: quote-api
+          # Container image
+          image: quote-api:latest
+          # Pull policy for local development
+          imagePullPolicy: IfNotPresent
+          # Ports exposed by the container
+          ports:
+            - containerPort: 3000
+          # Environment variables
+          env:
+            - name: PORT
+              value: "3000"
+          # Readiness probe to gate traffic
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Liveness probe to restart unhealthy pods
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
