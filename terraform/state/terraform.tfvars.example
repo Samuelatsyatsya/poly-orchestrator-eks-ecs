@@ -1,0 +1,3 @@
+region            = "us-east-1"
+name_prefix       = "poly-orchestrator"
+state_bucket_name = "poly-orchestrator-terraform-state-<UNIQUE_SUFFIX>"

@@ -1,0 +1,15 @@
+region      = "us-east-1"
+name_prefix = "poly-orchestrator"
+
+# Leave blank to use the module's ECR repo output
+app_image = ""
+
+# Lock ALB access in real deployments
+allowed_cidr = "0.0.0.0/0"
+
+# Optional overrides
+# desired_count = 2
+# min_count     = 2
+# max_count     = 4
+# task_cpu      = 256
+# task_memory   = 512

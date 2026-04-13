@@ -1,0 +1,12 @@
+region      = "us-east-1"
+name_prefix = "poly-orchestrator"
+
+# Lock EKS API access in real deployments
+allowed_cidr = "0.0.0.0/0"
+
+# Optional overrides
+# kubernetes_version = "1.29"
+# node_instance_types = ["t3.small"]
+# node_desired = 2
+# node_min     = 2
+# node_max     = 4

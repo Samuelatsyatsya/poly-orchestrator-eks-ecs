@@ -1,0 +1,5 @@
+bucket         = "poly-orchestrator-terraform-state-<UNIQUE_SUFFIX>"
+key            = "ecs/terraform.tfstate"
+region         = "us-east-1"
+encrypt        = true
+use_lockfile   = true
