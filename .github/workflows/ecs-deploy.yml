@@ -1,0 +1,75 @@
+# GitHub Actions workflow to build, push, and deploy to ECS.
+name: Deploy ECS (ECR + Task Definition)
+
+# Trigger on push to main and manual dispatch.
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Minimum permissions for OIDC and repo checkout.
+permissions:
+  id-token: write
+  contents: read
+
+# Default configuration (override via repo variables).
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'quote-api' }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'poly-orchestrator-cluster' }}
+  ECS_SERVICE: ${{ vars.ECS_SERVICE || 'poly-orchestrator-service' }}
+  TASK_DEFINITION_FAMILY: ${{ vars.TASK_DEFINITION_FAMILY || 'quote-api' }}
+  CONTAINER_NAME: ${{ vars.CONTAINER_NAME || 'quote-api' }}
+
+jobs:
+  # Single job that builds and deploys.
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository sources.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Configure AWS credentials using OIDC.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Resolve AWS account ID for ECR image URI.
+      - name: Resolve AWS account ID
+        run: echo "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
+
+      # Authenticate Docker to ECR.
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Build and push Docker image tagged with commit SHA.
+      - name: Build and push image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          docker build -t ${IMAGE_URI} ./app
+          docker push ${IMAGE_URI}
+
+      # Register a new task definition revision with the updated image.
+      - name: Register new task definition revision
+        run: |
+          TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition ${TASK_DEFINITION_FAMILY} --query taskDefinition)
+          NEW_TASK_DEF=$(echo "${TASK_DEF_JSON}" | jq --arg IMAGE "${IMAGE_URI}" --arg NAME "${CONTAINER_NAME}" '
+            .containerDefinitions = (.containerDefinitions | map(if .name == $NAME then .image = $IMAGE else . end))
+            | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
+          ')
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json "${NEW_TASK_DEF}" --query "taskDefinition.taskDefinitionArn" --output text)
+          echo "NEW_TASK_DEF_ARN=${NEW_TASK_DEF_ARN}" >> $GITHUB_ENV
+
+      # Update ECS service to the new task definition.
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster ${ECS_CLUSTER} \
+            --service ${ECS_SERVICE} \
+            --task-definition ${NEW_TASK_DEF_ARN}
